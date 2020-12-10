@@ -1,0 +1,8 @@
+fastapi==0.62.0
+peewee==3.14.0
+py-configfile==0.0.4
+py-configs-registry==0.0.2
+peewee-async==0.7.1
+asyncio==3.4.3
+arrow==0.17.0
+aiomysql==0.0.21
