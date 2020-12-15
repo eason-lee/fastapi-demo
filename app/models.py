@@ -1,26 +1,24 @@
-from peewee import Model, DateTimeField, IntegerField, CompositeKey, fn, Database
+import arrow
+from tortoise import fields, models, Tortoise
+from tortoise.functions import Sum
 
-from app import get_db, get_db_manager
 
-
-class StatisticsData(Model):
+class StatisticsData(models.Model):
     """ 统计数据 """
 
-    id = IntegerField()
-    d_t = DateTimeField()
-    val = IntegerField()
+    meta_id = fields.IntField()
+    d_t = fields.DatetimeField()
+    val = fields.IntField()
 
     class Meta:
-        database = get_db()
-        db_table = 'statistics_data'
-        primary_key = CompositeKey('id', 'd_t')
+        table = 'statistics_data'
+        unique_together = (('meta_id', 'd_t'),)
 
     @classmethod
     async def get_interval_data(cls,
                                 meta_ids: list,
-                                start: str,
-                                end: str,
-                                db: Database = None) -> list:
+                                start: arrow.Arrow,
+                                end: arrow.Arrow) -> list:
         """
         获取时间区内统计数据和
         :param meta_ids:
@@ -29,33 +27,22 @@ class StatisticsData(Model):
         :param db:
         :return:
         """
-        # 异步事务的使用
-        if not db:
-            db = get_db_manager()
+        res = await StatisticsData.filter(
+            d_t__gte=start.datetime,
+            d_t__lte=end.datetime,
+            meta_id__in=meta_ids,
+        ).group_by('meta_id').annotate(
+            s=Sum('val')
+        ).values('meta_id', val='s')
 
-        meta_id_q = StatisticsData.id.alias('meta_id')
-        query = StatisticsData.select(
-            meta_id_q,
-            fn.Sum(StatisticsData.val).alias('val')
-        ).where(
-            StatisticsData.d_t >= start,
-            StatisticsData.d_t <= end,
-            StatisticsData.id.in_(meta_ids),
-        ).group_by(meta_id_q)
-
-        res = await db.execute(
-            query.dicts()
-        )
-
-        return list(res)
+        return res
 
     @classmethod
     async def get_interval_unit_data(cls,
                                      meta_ids: list,
-                                     start: str,
-                                     end: str,
-                                     unit: str,
-                                     db: Database = None) -> list:
+                                     start: arrow.Arrow,
+                                     end: arrow.Arrow,
+                                     unit: str) -> list:
         """
         获取
         :param meta_ids:
@@ -65,35 +52,71 @@ class StatisticsData(Model):
         :param db:
         :return:
         """
-        if not db:
-            db = get_db_manager()
+
+        """
+        由于 tortoise-orm 的问题以下的语句不能使用，所以使用原生 sql 语句
+
+        from pypika import CustomFunction
+        from tortoise.expressions import F
+        from tortoise.functions import Function
+
+        class TruncTime(Function):
+            database_func = CustomFunction(
+            "DATE_FORMAT", ["name", "dt_format"])
 
         unit_fns = {
-            'day': fn.DATE_FORMAT(StatisticsData.d_t, '%Y-%m-%d'),
-            'week': fn.YearWeek(StatisticsData.d_t),
-            'month': fn.DATE_FORMAT(StatisticsData.d_t, '%Y-%m'),
-            'year': fn.Year(StatisticsData.d_t),
+            'day': TruncTime('d_t', '%Y-%m-%d'),
+            'week': TruncTime('d_t', '%x-%v'),
+            'month': TruncTime('d_t', '%Y-%m'),
+            'year': TruncTime('d_t', '%Y'),
         }
 
-        unit_time = unit_fns.get(unit).alias('time')
-        query = StatisticsData.select(
-            StatisticsData.id.alias('meta_id'),
-            unit_time,
-            fn.Sum(StatisticsData.val).alias('val')
-        ).where(
-            StatisticsData.d_t >= start,
-            StatisticsData.d_t <= end,
-            StatisticsData.id.in_(meta_ids),
-        ).group_by(StatisticsData.id, unit_time)
+        res = await StatisticsData.filter(
+            d_t__gte=start,
+            d_t__lte=end,
+            meta_id__in=meta_ids,
+        ).annotate(
+            time=unit_fns.get(unit),
+            vals=Sum('val'),
+        ).group_by('meta_id', 'time').values(
+        'meta_id',time='time', val='vals')
 
-        res = await db.execute(
-            query.dicts()
-        )
-        res = list(res)
+        """
+        units = {
+            'day': '%Y-%m-%d',
+            'week': '%x-%v',
+            'month': '%Y-%m',
+            'year': '%Y',
+        }
 
-        # FIXME peewee_async 会把 date_format 的值变成 datetime
-        if unit == 'day':
-            for r in res:
-                r['time'] = r['time'].strftime('%Y-%m-%d')
+        formatter = units.get(unit)
+        meta_ids = tuple(set(meta_ids))
+        start = start.format()
+        end = end.format()
+        conn = Tortoise.get_connection("default")
+        date_func = f"DATE_FORMAT( `d_t`, '{formatter}' ) `time`"
+
+        from app import debug
+
+        if debug:
+            date_func = f"strftime('{formatter}', `d_t` ) `time`"
+
+        sql = f"""
+        SELECT
+            `meta_id` `meta_id`,
+            {date_func},
+            SUM( `val` ) `val`
+        FROM
+            `statistics_data`
+        WHERE
+            `d_t` >= '{start}'
+            AND `d_t` <= '{end}'
+            AND `meta_id` IN {meta_ids}
+        GROUP BY
+            `meta_id`,
+            `time`
+        """
+
+        res = await conn.execute_query_dict(sql)
 
         return res

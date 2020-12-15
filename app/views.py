@@ -1,10 +1,8 @@
 from typing import List
 
 import arrow
-from fastapi import Depends
-from peewee import Database
 
-from app import get_db_manager
+
 from app.models import StatisticsData
 from app.routers import router
 from app.schemas import IntervalData, TimeUnit, IntervalUnitData
@@ -13,8 +11,7 @@ from app.schemas import IntervalData, TimeUnit, IntervalUnitData
 @router.get('/interval', response_model=List[IntervalData])
 async def get_interval_data(meta_ids: str,
                             start: str,
-                            end: str,
-                            db: Database = Depends(get_db_manager)):
+                            end: str):
     """
     获取某时间段内的统计数据和
 
@@ -28,15 +25,13 @@ async def get_interval_data(meta_ids: str,
 
     :return:
     """
-    start = arrow.get(start).floor('day').format()
-    end = arrow.get(end).ceil('day').format()
+    start = arrow.get(start).floor('day')
+    end = arrow.get(end).ceil('day')
     meta_ids = meta_ids.split(',')
 
     res = await StatisticsData.get_interval_data(meta_ids,
                                                  start,
-                                                 end,
-                                                 db=db)
-
+                                                 end)
     return res
 
 
@@ -44,8 +39,7 @@ async def get_interval_data(meta_ids: str,
 async def get_interval_of_unit_data(meta_ids: str,
                                     start: str,
                                     end: str,
-                                    unit: TimeUnit,
-                                    db: Database = Depends(get_db_manager)):
+                                    unit: TimeUnit):
     """
     获取某时间段内根据某时间单位分组的统计数据
 
@@ -61,14 +55,13 @@ async def get_interval_of_unit_data(meta_ids: str,
 
     :return:
     """
-    start = arrow.get(start).floor('day').format()
-    end = arrow.get(end).ceil('day').format()
+    start = arrow.get(start).floor('day')
+    end = arrow.get(end).ceil('day')
     meta_ids = meta_ids.split(',')
 
     res = await StatisticsData.get_interval_unit_data(meta_ids,
                                                       start,
                                                       end,
-                                                      unit,
-                                                      db=db)
+                                                      unit)
 
     return res

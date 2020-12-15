@@ -5,4 +5,3 @@ mysql_server:
   password: !!str 123456
   database: ht_silo_statistics
   charset: utf8mb4
-
