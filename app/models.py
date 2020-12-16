@@ -1,17 +1,42 @@
+from typing import List
+
 import arrow
 from tortoise import fields, models, Tortoise
+from tortoise.contrib.pydantic import PydanticModel
 from tortoise.functions import Sum
+
+
+class StatisticsMeta(models.Model):
+    """ meta """
+
+    id = fields.IntField(pk=True)
+    project = fields.IntField()
+    title = fields.CharField(64)
+    belong = fields.CharField(64)
+    intro = fields.CharField(128)
+
+    class Meta:
+        table = 'statistics_meta'
+
+    @classmethod
+    async def add_metas(cls, metas: List[PydanticModel]) -> List[models.Model]:
+        """创建 metas"""
+
+        return [
+            await StatisticsMeta.create(**d.dict(exclude_unset=True))
+            for d in metas
+        ]
 
 
 class StatisticsData(models.Model):
     """ 统计数据 """
-
+    id = fields.IntField(pk=True)
     meta_id = fields.IntField()
     d_t = fields.DatetimeField()
     val = fields.IntField()
 
     class Meta:
-        table = 'statistics_data'
+        table = 'statistics_data_v2'
         unique_together = (('meta_id', 'd_t'),)
 
     @classmethod
@@ -107,7 +132,7 @@ class StatisticsData(models.Model):
             {date_func},
             SUM( `val` ) `val`
         FROM
-            `statistics_data`
+            `statistics_data_v2`
         WHERE
             `d_t` >= '{start}'
             AND `d_t` <= '{end}'

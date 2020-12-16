@@ -1,11 +1,26 @@
 from typing import List
 
 import arrow
-
-
-from app.models import StatisticsData
+from app.models import StatisticsData, StatisticsMeta
 from app.routers import router
-from app.schemas import IntervalData, TimeUnit, IntervalUnitData
+from app.schemas import (IntervalData, TimeUnit, IntervalUnitData,
+                         StatisticsMeta_Pydantic,
+                         StatisticsMetaIn_Pydantic)
+
+
+@router.post('/metas',
+             status_code=201,
+             response_model=List[StatisticsMeta_Pydantic])
+async def create_metas(metas: List[StatisticsMetaIn_Pydantic]):
+    """
+
+    :param metas:
+    :return:
+    """
+    objs = await StatisticsMeta.add_metas(metas)
+
+    return [await StatisticsMeta_Pydantic.from_tortoise_orm(obj)
+            for obj in objs]
 
 
 @router.get('/interval', response_model=List[IntervalData])

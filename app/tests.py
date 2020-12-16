@@ -3,7 +3,6 @@ from typing import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-
 from tortoise.contrib.test import finalizer, initializer
 
 from app import app
@@ -52,7 +51,6 @@ async def create_statistics_data():
 
 
 def test_get_interval_data(client: TestClient):
-
     event_loop = asyncio.get_event_loop()
     event_loop.run_until_complete(create_statistics_data())
 
@@ -134,3 +132,22 @@ def test_get_interval_unit_data(client: TestClient):
             assert d.get('val') == 20
         if d.get('meta_id') == 3:
             assert d.get('val') == 10
+
+
+def test_create_metas(client: TestClient):
+    data = [{
+        "project": 1,
+        "title": "测试1",
+        "belong": "test--1",
+        "intro": "test1",
+    }]
+
+    response = client.post("/v1/statistics/metas",
+                           json=data)
+
+    assert response.status_code == 201
+    result = response.json()[0]
+    assert result['project'] == data[0]['project']
+    assert result['title'] == data[0]['title']
+    assert result['belong'] == data[0]['belong']
+    assert result['intro'] == data[0]['intro']

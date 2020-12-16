@@ -3,5 +3,5 @@ mysql_server:
   port: 3306
   user: root
   password: !!str 123456
-  database: ht_silo_statistics
+  database: statistics
   charset: utf8mb4
