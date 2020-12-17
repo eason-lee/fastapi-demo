@@ -2,17 +2,23 @@ import asyncio
 from typing import Generator
 
 import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from tortoise.contrib.test import finalizer, initializer
 
-from app import app
+from app import create_app
 from app.models import StatisticsData
+
+fake = Faker()
 
 
 @pytest.fixture
 def client() -> Generator:
+    app = create_app(db_conn='sqlite',
+                     generate_schemas=True)
     # 初始化数据库
-    initializer(["app.models"])
+    initializer(['app.models'])
+
     with TestClient(app) as c:
         yield c
 
@@ -47,8 +53,6 @@ async def create_statistics_data():
         val=10,
     )
 
-    return
-
 
 def test_get_interval_data(client: TestClient):
     event_loop = asyncio.get_event_loop()
@@ -56,7 +60,7 @@ def test_get_interval_data(client: TestClient):
 
     start = '2020-11-01'
     end = '2020-12-20'
-    response = client.get("/v1/statistics/interval",
+    response = client.get('/v1/statistics/interval',
                           params={'meta_ids': '1,2,3',
                                   'start': start,
                                   'end': end})
@@ -80,7 +84,7 @@ def test_get_interval_unit_data(client: TestClient):
     start = '2020-11-01'
     end = '2020-12-20'
     # day
-    response = client.get("/v1/statistics/interval/unit",
+    response = client.get('/v1/statistics/interval/unit',
                           params={'meta_ids': '1,2,3',
                                   'start': start,
                                   'end': end,
@@ -98,7 +102,7 @@ def test_get_interval_unit_data(client: TestClient):
             assert d.get('val') == 10
 
     # month
-    response = client.get("/v1/statistics/interval/unit",
+    response = client.get('/v1/statistics/interval/unit',
                           params={'meta_ids': '1,2,3',
                                   'start': start,
                                   'end': end,
@@ -116,7 +120,7 @@ def test_get_interval_unit_data(client: TestClient):
             assert d.get('val') == 10
 
     # year
-    response = client.get("/v1/statistics/interval/unit",
+    response = client.get('/v1/statistics/interval/unit',
                           params={'meta_ids': '1,2,3',
                                   'start': start,
                                   'end': end,
@@ -136,13 +140,13 @@ def test_get_interval_unit_data(client: TestClient):
 
 def test_create_metas(client: TestClient):
     data = [{
-        "project": 1,
-        "title": "测试1",
-        "belong": "test--1",
-        "intro": "test1",
+        'project': 1,
+        'title': '测试1',
+        'belong': 'test--1',
+        'intro': 'test1',
     }]
 
-    response = client.post("/v1/statistics/metas",
+    response = client.post('/v1/statistics/metas',
                            json=data)
 
     assert response.status_code == 201
@@ -151,3 +155,66 @@ def test_create_metas(client: TestClient):
     assert result['title'] == data[0]['title']
     assert result['belong'] == data[0]['belong']
     assert result['intro'] == data[0]['intro']
+
+
+def test_get_metas(client: TestClient):
+    data1 = {
+        'project': 1,
+        'title': '测试{}'.format(fake.name()),
+        'belong': '冒险{}'.format(fake.name()),
+        'intro': 'test ',
+    }
+    data2 = {
+        'project': 2,
+        'title': '测试{}'.format(fake.name()),
+        'belong': '{}军事'.format(fake.name()),
+        'intro': '冬休 ',
+    }
+    data3 = {
+        'project': 3,
+        'title': '没有{}'.format(fake.name()),
+        'belong': '哈哈{}'.format(fake.name()),
+        'intro': '词典 {}'.format(fake.name()),
+    }
+
+    client.post('/v1/statistics/metas', json=[data1, data2, data3])
+
+    response = client.get('/v1/statistics/metas',
+                          params={
+                              'project_ids': '1,2,3'
+                          })
+
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result) == 3
+
+    response = client.get('/v1/statistics/metas',
+                          params={
+                              'title': '测试'
+                          })
+    result = response.json()
+    assert len(result) == 2
+
+    response = client.get('/v1/statistics/metas',
+                          params={
+                              'title': '没有'
+                          })
+    result = response.json()
+    assert len(result) == 1
+    assert result[0]['belong'] == data3['belong']
+    assert result[0]['intro'] == data3['intro']
+    assert result[0]['project'] == data3['project']
+
+    response = client.get('/v1/statistics/metas',
+                          params={
+                              'belong': '军事'
+                          })
+    result = response.json()
+    assert len(result) == 1
+
+    response = client.get('/v1/statistics/metas',
+                          params={
+                              'intro': '词典'
+                          })
+    result = response.json()
+    assert len(result) == 1

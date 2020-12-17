@@ -1,17 +1,13 @@
 FROM python:3.8
 
-# Mirror
-RUN echo "http://mirrors.aliyun.com/alpine/v3.8/main" > /etc/apk/repositories
-RUN echo "http://mirrors.aliyun.com/alpine/v3.8/community" >> /etc/apk/repositories
+WORKDIR /app/fastapi-demo
 
-# Soft
-RUN apk add --no-cache gcc make musl-dev g++ linux-headers libffi-dev curl-dev zlib-dev
-RUN pip install --upgrade -i https://pypi.tuna.tsinghua.edu.cn/simple pip
-RUN pip install --upgrade -i https://pypi.tuna.tsinghua.edu.cn/simple cpython
-RUN pip install --upgrade -i https://pypi.tuna.tsinghua.edu.cn/simple numpy
-RUN pip install --upgrade -i https://pypi.tuna.tsinghua.edu.cn/simple pandas
+ADD ./requirements.txt /app/
+RUN pip install --trusted-host mirrors.aliyun.com -i http://mirrors.aliyun.com/pypi/simple/ -r /app/requirements.txt
 
-WORKDIR /srv
-COPY entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
+ADD ./entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["bash", "/entrypoint.sh"]
+
+ADD . /app
+
 CMD ["python3", "main.py"]

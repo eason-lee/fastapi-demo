@@ -15,6 +15,7 @@ server_options = Registry(GlobalConfigFile.load_app('server'))
 app_options = Registry(GlobalConfigFile.load_app('app'))
 
 debug = app_options.get('debug').get('active')
+mysql_options = server_options.get('mysql_server')
 
 
 def get_mysql_url(mysql_options, database=None):
@@ -34,18 +35,9 @@ def get_mysql_url(mysql_options, database=None):
     return db_url
 
 
-def get_db_url():
-    mysql_options = server_options.get('mysql_server')
-
-    if debug is True:
-        return 'sqlite://:memory:'
-        # return 'sqlite://db.sqlite3'
-
-    return get_mysql_url(mysql_options)
-
-
 TORTOISE_ORM = {
-    "connections": {"default": get_db_url()},
+    "connections": {"default": get_mysql_url(mysql_options),
+                    "sqlite": "sqlite://:memory:"},
     "apps": {
         "models": {
             "models": ["app.models", "aerich.models"],
@@ -55,19 +47,19 @@ TORTOISE_ORM = {
 }
 
 
-def create_app():
+def create_app(db_conn='default', generate_schemas=False):
     app = FastAPI()
     from . import routers
 
     # 注册路由
     app.include_router(routers.router)
-    # 注册 orm
 
+    # 注册 orm
     register_tortoise(
         app,
-        db_url=TORTOISE_ORM['connections']['default'],
+        db_url=TORTOISE_ORM['connections'][db_conn],
         modules={"models": TORTOISE_ORM['apps']['models']['models']},
-        generate_schemas=bool(debug),
+        generate_schemas=generate_schemas,
         add_exception_handlers=True,
     )
 
