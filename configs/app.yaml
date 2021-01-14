@@ -1,0 +1,9 @@
+debug:
+  active: true
+service:
+  name: statistics-api
+  id: dev
+server:
+  redis_enable: false
+  mysql_enable: true
+  mqtt_enable: false

@@ -1,0 +1,27 @@
+asyncio==3.4.3
+uvicorn==0.12.3
+
+# fastapi
+fastapi==0.62.0
+
+# config
+py-configfile==0.0.4
+py-configs-registry==0.0.2
+
+# time
+arrow==0.17.0
+
+# async orm
+aiomysql==0.0.21
+tortoise-orm==0.16.18
+
+# migration
+aerich==0.4.2
+
+# test
+pytest==6.2.0
+asynctest==0.13.0
+faker==5.0.2
+
+# request
+requests==2.25.0
